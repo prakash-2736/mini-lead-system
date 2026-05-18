@@ -1,18 +1,23 @@
-import mongoose from "mongoose";
+import mongoose, { Mongoose } from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI!;
+// Allow using a local MongoDB instance by default for development.
+// Prefer an explicit MONGODB_URI from environment when provided.
+const MONGODB_URI =
+  process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/mini-lead-system";
 
-if (!MONGODB_URI) {
-  throw new Error("Please define MONGODB_URI");
+type MongooseCache = {
+  conn: Mongoose | null;
+  promise: Promise<Mongoose> | null;
+};
+
+declare global {
+  var mongooseCache: MongooseCache | undefined;
 }
 
-let cached = (global as any).mongoose;
+const cached = global.mongooseCache ?? { conn: null, promise: null };
 
-if (!cached) {
-  cached = (global as any).mongoose = {
-    conn: null,
-    promise: null,
-  };
+if (!global.mongooseCache) {
+  global.mongooseCache = cached;
 }
 
 export async function connectDB() {

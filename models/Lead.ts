@@ -1,18 +1,21 @@
-import mongoose, { Schema, model, models } from "mongoose";
+import { Schema, model, models } from "mongoose";
 
 const LeadSchema = new Schema(
   {
     name: {
       type: String,
       required: true,
+      trim: true,
     },
     phone: {
       type: String,
       required: true,
+      trim: true,
     },
     city: {
       type: String,
       required: true,
+      trim: true,
     },
     description: String,
     serviceId: {
