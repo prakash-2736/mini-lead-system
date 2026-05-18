@@ -1,26 +1,108 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f1e8;
+  --foreground: #0f172a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(245, 158, 11, 0.18),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(13, 148, 136, 0.16),
+      transparent 26%
+    ),
+    linear-gradient(180deg, #fffaf2 0%, #f3e8d7 100%);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+::selection {
+  background: rgba(217, 119, 6, 0.24);
+  color: var(--foreground);
+}
+
+@layer components {
+  .app-shell {
+    @apply relative isolate min-h-screen overflow-hidden px-4 py-6 sm:px-6 lg:px-8;
+  }
+
+  .app-grid {
+    @apply mx-auto flex w-full max-w-6xl flex-col gap-6;
+  }
+
+  .surface-card {
+    @apply rounded-3xl border border-amber-200/60 bg-white/80 shadow-xl backdrop-blur;
+  }
+
+  .hero-chip {
+    @apply inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-amber-800;
+  }
+
+  .hero-title {
+    @apply text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl;
+  }
+
+  .hero-accent {
+    @apply bg-gradient-to-r from-amber-600 via-orange-500 to-emerald-600 bg-clip-text text-transparent;
+  }
+
+  .soft-copy {
+    @apply text-base leading-7 text-slate-600 sm:text-lg;
+  }
+
+  .primary-button {
+    @apply inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .secondary-button {
+    @apply inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-amber-300 hover:text-slate-950;
+  }
+
+  .input-field {
+    @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-amber-400 focus:ring-4 focus:ring-amber-100;
+  }
+
+  .stat-card {
+    @apply rounded-3xl border border-slate-200/70 bg-white/70 p-5 shadow-sm;
+  }
+
+  .mini-label {
+    @apply text-xs font-semibold uppercase tracking-[0.24em] text-slate-500;
+  }
+
+  .helper-copy {
+    @apply text-sm leading-6 text-slate-500;
+  }
+
+  .message-chip {
+    @apply rounded-2xl border px-4 py-3 text-sm font-medium;
+  }
+
+  .message-success {
+    @apply border-emerald-200 bg-emerald-50 text-emerald-700;
+  }
+
+  .message-error {
+    @apply border-rose-200 bg-rose-50 text-rose-700;
+  }
+
+  .message-neutral {
+    @apply border-slate-200 bg-slate-50 text-slate-700;
+  }
 }
