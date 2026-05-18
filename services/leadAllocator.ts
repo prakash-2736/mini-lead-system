@@ -27,117 +27,118 @@ const RULES = {
   },
 };
 
+async function reserveProvider(
+  providerName: string,
+  leadId: string,
+  assignedSet: Set<string>,
+  session: mongoose.ClientSession,
+) {
+  const provider = await Provider.findOneAndUpdate(
+    {
+      name: providerName,
+      quotaRemaining: { $gt: 0 },
+    },
+    {
+      $inc: { quotaRemaining: -1 },
+    },
+    {
+      new: true,
+      session,
+    },
+  );
+
+  if (!provider) {
+    return false;
+  }
+
+  if (assignedSet.has(provider._id.toString())) {
+    return false;
+  }
+
+  await LeadAssignment.create(
+    [
+      {
+        leadId,
+        providerId: provider._id,
+      },
+    ],
+    { session },
+  );
+
+  assignedSet.add(provider._id.toString());
+
+  return true;
+}
+
 export async function allocateLead(leadId: string) {
   const session = await mongoose.startSession();
 
   try {
-    session.startTransaction();
+    await session.withTransaction(async () => {
+      const lead = await Lead.findById(leadId).session(session);
 
-    const lead = await Lead.findById(leadId).session(session);
-
-    if (!lead) {
-      throw new Error("Lead not found");
-    }
-
-    const service = await Service.findById(lead.serviceId).session(session);
-
-    if (!service) {
-      throw new Error("Service not found");
-    }
-
-    const rule = RULES[service.name as keyof typeof RULES];
-
-    if (!rule) {
-      throw new Error("Allocation rule missing");
-    }
-
-    const assignedProviderIds = new Set<string>();
-
-    // Mandatory providers
-    const mandatoryProviders = await Provider.find({
-      name: { $in: rule.mandatory },
-      quotaRemaining: { $gt: 0 },
-    }).session(session);
-
-    for (const provider of mandatoryProviders) {
-      await LeadAssignment.create(
-        [
-          {
-            leadId: lead._id,
-            providerId: provider._id,
-          },
-        ],
-        { session },
-      );
-
-      provider.quotaRemaining -= 1;
-      await provider.save({ session });
-
-      assignedProviderIds.add(provider._id.toString());
-    }
-
-    const remainingSlots = 3 - assignedProviderIds.size;
-
-    if (remainingSlots <= 0) {
-      await session.commitTransaction();
-      return;
-    }
-
-    const rrState = await RoundRobinState.findOne({
-      serviceId: service._id,
-    }).session(session);
-
-    if (!rrState) {
-      throw new Error("Round robin state missing");
-    }
-
-    const poolProviders = await Provider.find({
-      name: { $in: rule.pool },
-      quotaRemaining: { $gt: 0 },
-    }).session(session);
-
-    const sortedPool = rule.pool
-      .map((name) => {
-        return poolProviders.find((p) => p.name.toString() === name);
-      })
-      .filter((p) => p != null);
-
-    let cursor = rrState.cursorIndex;
-    let assignedCount = 0;
-    let attempts = 0;
-
-    while (assignedCount < remainingSlots && attempts < sortedPool.length) {
-      const provider = sortedPool[cursor % sortedPool.length];
-
-      if (provider && !assignedProviderIds.has(provider._id.toString())) {
-        await LeadAssignment.create(
-          [
-            {
-              leadId: lead._id,
-              providerId: provider._id,
-            },
-          ],
-          { session },
-        );
-
-        provider.quotaRemaining -= 1;
-        await provider.save({ session });
-
-        assignedProviderIds.add(provider._id.toString());
-        assignedCount++;
+      if (!lead) {
+        throw new Error("Lead not found");
       }
 
-      cursor++;
-      attempts++;
-    }
+      const service = await Service.findById(lead.serviceId).session(session);
 
-    rrState.cursorIndex = cursor % sortedPool.length;
-    await rrState.save({ session });
+      if (!service) {
+        throw new Error("Service not found");
+      }
 
-    await session.commitTransaction();
-  } catch (error) {
-    await session.abortTransaction();
-    throw error;
+      const rule = RULES[service.name as keyof typeof RULES];
+
+      if (!rule) {
+        throw new Error("Rule missing");
+      }
+
+      const assignedSet = new Set<string>();
+
+      // mandatory
+      for (const providerName of rule.mandatory) {
+        await reserveProvider(providerName, leadId, assignedSet, session);
+      }
+
+      const remainingSlots = 3 - assignedSet.size;
+
+      if (remainingSlots <= 0) {
+        return;
+      }
+
+      const rrState = await RoundRobinState.findOne({
+        serviceId: service._id,
+      }).session(session);
+
+      if (!rrState) {
+        throw new Error("Round robin state missing");
+      }
+
+      let cursor = rrState.cursorIndex;
+      let assignedCount = 0;
+      let checked = 0;
+
+      while (assignedCount < remainingSlots && checked < rule.pool.length) {
+        const providerName = rule.pool[cursor % rule.pool.length];
+
+        const success = await reserveProvider(
+          providerName,
+          leadId,
+          assignedSet,
+          session,
+        );
+
+        if (success) {
+          assignedCount++;
+        }
+
+        cursor++;
+        checked++;
+      }
+
+      rrState.cursorIndex = cursor % rule.pool.length;
+      await rrState.save({ session });
+    });
   } finally {
     session.endSession();
   }

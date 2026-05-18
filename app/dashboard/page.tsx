@@ -1,15 +1,39 @@
-async function getDashboardData() {
-  const res = await fetch("http://localhost:3000/api/dashboard", {
-    cache: "no-store",
-  });
+"use client";
 
-  return res.json();
-}
+import { useEffect, useState } from "react";
 
-export default async function DashboardPage() {
-  const data = await getDashboardData();
+export default function DashboardPage() {
+  const [providers, setProviders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const providers = data.providers || [];
+  const fetchDashboard = async () => {
+    try {
+      const res = await fetch("/api/dashboard");
+      const data = await res.json();
+
+      if (data.success) {
+        setProviders(data.providers);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboard();
+
+    const interval = setInterval(() => {
+      fetchDashboard();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) {
+    return <div className="p-8">Loading dashboard...</div>;
+  }
 
   return (
     <div className="min-h-screen p-8">
